@@ -108,7 +108,7 @@ if __name__ == '__main__':
                         help="Creates a visualization of the network. "
                             "Requires packages `networkx` and `matplotlib`. "
                             "(default: False)")
-    parser.set_defaults(draw_net=False)
+    parser.set_defaults(draw_net=True)
 
     args = parser.parse_args()
     bn = gen_bn(args.network_type, args.num_nodes, args.prob,
