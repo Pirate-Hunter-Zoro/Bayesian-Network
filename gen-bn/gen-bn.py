@@ -70,7 +70,7 @@ def draw_net(net):
     ## add edges
     for i, data in net.items():
         for j in data['parents']:
-            g.add_edge(i, j)
+            g.add_edge(j, i)
 
 
     nx.draw(g, with_labels=True)
@@ -84,30 +84,30 @@ if __name__ == '__main__':
                                         "variables.")
     parser.add_argument('network_type', type=str,
                         help="The network type to generate. Acceptable values "
-                             "are 'dag' and 'polytree'.")
+                            "are 'dag' and 'polytree'.")
     parser.add_argument('num_nodes', type=int,
                         help="The number of nodes for the network")
     parser.add_argument('--prob', type=float, default=0.5,
                         help="The probability of generating an edge. "
-                             "(default: 0.5)")
+                            "(default: 0.5)")
     parser.add_argument('--max-parents', type=int, default=5,
                         help="The maximum number of parents a node may have. "
-                             "If you do not want to restrict the number of "
-                             "parents, use -1. (default: 5)")
+                            "If you do not want to restrict the number of "
+                            "parents, use -1. (default: 5)")
     parser.add_argument('--a', type=float, default=1.0,
                         help="The first hyperparameter to the beta "
-                             "distribution that generate conditional "
-                             "probabilities. (default: 1.0)")
+                            "distribution that generate conditional "
+                            "probabilities. (default: 1.0)")
     parser.add_argument('--b', type=float, default=1.0,
                         help="The second hyperparameter to the beta "
-                             "distribution that generates conditional "
-                             "probabilities. (default: 1.0)")
+                            "distribution that generates conditional "
+                            "probabilities. (default: 1.0)")
     parser.add_argument('--output-file', type=str, default='bn.json',
                         help="The JSON-formatted output file to write to.")
     parser.add_argument('--draw-net', dest='draw_net', action='store_true',
                         help="Creates a visualization of the network. "
-                             "Requires packages `networkx` and `matplotlib`. "
-                             "(default: False)")
+                            "Requires packages `networkx` and `matplotlib`. "
+                            "(default: False)")
     parser.set_defaults(draw_net=False)
 
     args = parser.parse_args()
