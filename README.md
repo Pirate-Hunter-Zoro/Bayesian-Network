@@ -56,4 +56,4 @@ def tim_polytree(num_nodes, prob=0.5, max_parents=None):
       clusters.append(c2)
   print(net)
   print(parent_net)
-  return net```
+  return net
