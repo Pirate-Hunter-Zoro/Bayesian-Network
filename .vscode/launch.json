@@ -10,7 +10,10 @@
       "request": "launch",
       "program": "${cwd}/gen-bn/gen-bn.py",
       "console": "integratedTerminal",
-      "args": ["dag", "10"]
+      "args": [
+        "dag",
+        "10"
+      ]
     },
     {
       "name": "Create Small Bayesian Network",
@@ -18,7 +21,26 @@
       "request": "launch",
       "program": "${cwd}/gen-bn/gen-bn.py",
       "console": "integratedTerminal",
-      "args": ["dag", "5"]
+      "args": [
+        "dag", 
+        "5"
+      ]
+    },
+    {
+      "name": "Calculate Probability For Graph 2",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${cwd}/exact_inference/exact_inference.py",
+      "console": "integratedTerminal",
+      "args": [
+        "-f", 
+        "bn_test_2.json",
+        "-ev_true", "2", 
+        "-ev_false", 
+        "", 
+        "-q", 
+        "0"
+      ]
     },
     {
       "name": "Calculate Probability For Graph 3",
@@ -26,7 +48,16 @@
       "request": "launch",
       "program": "${cwd}/exact_inference/exact_inference.py",
       "console": "integratedTerminal",
-      "args": ["-f", "bn_test_2.json", "-ev_true", "2", "-ev_false", "", "-q", "3"]
+      "args": [
+        "-f",
+        "bn_test_3.json",
+        "-ev_true",
+        "",
+        "-ev_false",
+        "2",
+        "-q",
+        "1"
+      ]
     }
   ]
 }
