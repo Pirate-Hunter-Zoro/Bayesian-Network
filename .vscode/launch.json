@@ -19,6 +19,14 @@
       "program": "${cwd}/gen-bn/gen-bn.py",
       "console": "integratedTerminal",
       "args": ["dag", "5"]
+    },
+    {
+      "name": "Calculate Probability For Graph 3",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${cwd}/exact_inference/exact_inference.py",
+      "console": "integratedTerminal",
+      "args": ["-f", "bn_test_2.json", "-ev_true", "2", "-ev_false", "", "-q", "3"]
     }
   ]
 }

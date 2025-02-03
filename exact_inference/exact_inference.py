@@ -16,6 +16,8 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--file', nargs=1, required = True, help='The name of the json file from gen-bn')
 parser.add_argument('-q', '--query', nargs=1, default='0', help='The query variable name')
+parser.add_argument('-ev_true', '--evidence_true', nargs=1, default='', help='The list of evidence variables which are known to be true')
+parser.add_argument('-ev_false', '--evidence_false', nargs=1, default='', help='The list of evidence variables which are known to be false')
 parser.add_argument('-m', '--multiprocessing', action='store_true', help='Enables multiprocessing over the query variable values, probably don\'t use this if your other methods don\'t use multiprocessing, as this will run twice as fast.')
 args = parser.parse_args()
 
@@ -123,12 +125,12 @@ class Bayes_Net():
             Q.update({evidence[query_var]:sum})
             lock.release()
             return
-   
+    
     def P_x_given(self, x, evidence):
         parent_values = []
         for parent in self.net.predecessors(x):
-           parent_values.append(evidence[parent])
-           
+            parent_values.append(evidence[parent])
+            
         match = [cp for cp in self.nodes[x].cpt if cp[0] == parent_values]
         return match[0][1]
     
@@ -151,7 +153,7 @@ class Bayes_Node():
 
 def runner():
     bn = Bayes_Net()
-    bn.create_from_json("bn.json")
+    bn.create_from_json(args.file[0])
     # bn.draw()
 
     starttime = time.time()
@@ -159,7 +161,16 @@ def runner():
         print("Running multiprocessed exact inference on query variable", args.query[0])
     else:
         print("Running exact inference on query variable", args.query[0])
-    exact_enum = bn.enumeration_ask(args.query[0])
+    evidence = {}
+    if len(args.evidence_true[0]) > 0:
+        know_true = [int(v) for v in args.evidence_true[0].split(',')]
+        for v in know_true:
+            evidence[v] = 1
+    if len(args.evidence_false[0]) > 0:
+        know_false = [int(v) for v in args.evidence_false[0].split(',')]
+        for v in know_false:
+            evidence[v] = 0
+    exact_enum = bn.enumeration_ask(args.query[0], evidence)
     # print(exact_enum)
     endtime = time.time()
     exact_time = (endtime-starttime)
@@ -171,7 +182,3 @@ def runner():
     
 if __name__ == "__main__":
     runner()
-
-
-
-    
