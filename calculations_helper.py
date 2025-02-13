@@ -1,4 +1,5 @@
 import numpy as np
+import random
 from disjoint_set import DisjointSet
 
 def find_row_sum_pairs(var: int, all_vars: list[int]) -> list[tuple[int,int]]:
@@ -285,3 +286,66 @@ def calculate_probability(var: int, others: dict[int,bool], network: dict) -> fl
     var_distribution = join_factors(var, eliminate=False, relevant_factors=[factor_idx_to_factor[i] for i in var_to_factor_indices[var]])[1]
     var_distribution = var_distribution / np.sum(var_distribution)
     return var_distribution[1] # probability of var being true
+
+def perform_gibbs_sampling(non_evidence_variables: list[int], current_evidence: dict[int,bool], network: dict, queries: list[int]) -> int:
+    """Perform one round of Gibbs sampling given a bayesian network - and return the row in the corresponding probability distribution whose count we should update
+
+    Args:
+        non_evidence_variables (list[int]): variables to determine probabilistically
+        current_evidence (dict[int,bool]): current set of values assigned to each variable
+        network (dict): underlying bayesian network
+        queries (list[int]): list of query variables whose values we are interested in calculating the probability for
+
+    Returns:
+        int: corresponding row in the likelihood array
+    """
+    # perform the Gibbs algorithm this many times
+    var_to_change = non_evidence_variables[int(random.random()*len(non_evidence_variables))]
+    del current_evidence[var_to_change]
+    # simulate the probability of var_to_change being true given everything else
+    p = calculate_probability(var_to_change, current_evidence, network)
+    current_evidence[var_to_change] = (random.random() < p)
+    # see how our queries showed up
+    query_values = [1 if current_evidence[q] else 0 for q in queries]
+    # find the entry in our probability distribution that corresponds with this combination of query values
+    posn = find_corresponding_rows(query_values, queries, queries)[0]
+    # return the entry index so that the caller can update 
+    return posn
+
+def perform_likelihood_weighting(network: dict, sorted_vars: list[int], queries: list[int], evidence: dict[int,bool], current_evidence: dict[int, bool]) -> tuple[float, int]:
+    """Perform one round of likelihood weighting given a bayesian network - assign variable values to the current_evidence dictionary and return the corresponding weight and position in a probability distribution that should be updated
+
+    Args:       
+        network (dict): underlying bayesian network
+        sorted_vars (list[int]): topologically sorted list of variables (helpful to pass so that resorting need not be done when this function is called periodically)
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): set of evidence variables with pre-determined values
+        current_evidence (dict[int, bool]): currently observed evidence that can be changed - represents current state of our network
+
+    Returns:
+        tuple[float, int]: weight associated with the random variable assignment as well as the index in the probability distribution that would warrant an update
+    """
+    weight = 1.0
+
+    for var in sorted_vars:
+        probabilities = [pair[1] for pair in network[str(var)]["prob"]]
+        parents = network[str(var)]["parents"]
+        prob_true = 0.0
+        if len(parents) > 0:
+            # look at the parents to determine probability of being true
+            row = find_corresponding_rows([1 if current_evidence[p] else 0 for p in parents], parents, parents)[0]
+            prob_true += probabilities[row]
+        else:
+            prob_true += probabilities[0]
+
+        # if the variable is in evidence, update the weight
+        if var in evidence.keys():
+            weight *= prob_true if evidence[var] else (1 - prob_true)
+        else: # otherwise set in the current evidence the value of this variable to be according to the probability given ancestors' values
+            current_evidence[var] = random.random() < prob_true
+        
+    query_values = [1 if current_evidence[q] else 0 for q in queries]
+    # find the entry in our probability distribution that corresponds with this combination of query values
+    posn = find_corresponding_rows(query_values, queries, queries)[0]
+
+    return weight, posn
