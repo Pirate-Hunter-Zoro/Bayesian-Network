@@ -268,3 +268,20 @@ def create_factors(network: dict, evidence: dict[int,bool]) -> tuple[dict[int, t
         factor_index_to_factor[len(factor_index_to_factor)] = prob_tuple
 
     return factor_index_to_factor, var_to_factor_indices
+
+def calculate_probability(var: int, others: dict[int,bool], network: dict) -> float:
+    """Given a variable and set values for all other variables in the above Bayesian Network, calculate the the probability of var being true
+
+    Args:
+        var (int): variable in question
+        others (dict[int,bool]): all other variable values
+
+    Returns:
+        bool: probability that var is true given all other variable values
+    """
+    # join on the factors that matter to var
+    factor_idx_to_factor, var_to_factor_indices = create_factors(network=network, evidence=others) 
+    # the following result should be a 2D vector - var is False or var is True
+    var_distribution = join_factors(var, eliminate=False, relevant_factors=[factor_idx_to_factor[i] for i in var_to_factor_indices[var]])[1]
+    var_distribution = var_distribution / np.sum(var_distribution)
+    return var_distribution[1] # probability of var being true
