@@ -349,3 +349,29 @@ def perform_likelihood_weighting(network: dict, sorted_vars: list[int], queries:
     posn = find_corresponding_rows(query_values, queries, queries)[0]
 
     return weight, posn
+
+def find_weight(current_evidence: dict[int,bool], original_evidence: dict[int,bool], network: dict) -> float:
+    """Helper method to calculate the likelihood weight of a certain assignment for all variables given which variables were the original evidence
+
+    Args:
+        current_evidence (dict[int,bool]): all variable assignments
+        original_evidence (dict[int,bool]): original set of evidence variables with their values
+        network (dict): underlying bayesian network
+
+    Returns:
+        float: likelihood weighting for the total variable assignment
+    """
+    weight = 1.0
+    for v in original_evidence.keys():
+        parents = network[str(v)]["parents"]
+        probabilities = [pair[1] for pair in network[str(v)]["prob"]]
+        prob_true = 0.0
+        if len(parents) > 0:
+            # look at the parents to determine probability of being true
+            row = find_corresponding_rows([1 if current_evidence[p] else 0 for p in parents], parents, parents)[0]
+            prob_true += probabilities[row]
+        else:
+            prob_true += probabilities[0]
+        weight *= prob_true if original_evidence[v] else (1 - prob_true)
+    
+    return weight
