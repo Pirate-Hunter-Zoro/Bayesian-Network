@@ -10,10 +10,7 @@
       "request": "launch",
       "program": "${cwd}/gen-bn/gen-bn.py",
       "console": "integratedTerminal",
-      "args": [
-        "dag",
-        "10"
-      ]
+      "args": ["dag", "10"]
     },
     {
       "name": "Create Small Bayesian Network",
@@ -21,10 +18,23 @@
       "request": "launch",
       "program": "${cwd}/gen-bn/gen-bn.py",
       "console": "integratedTerminal",
-      "args": [
-        "dag", 
-        "5"
-      ]
+      "args": ["dag", "5"]
+    },
+    {
+      "name": "Create Small Polytree Bayesian Network",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${cwd}/gen-bn/gen-bn.py",
+      "console": "integratedTerminal",
+      "args": ["polytree", "15"]
+    },
+    {
+      "name": "Create Big Polytree Bayesian Network",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${cwd}/gen-bn/gen-bn.py",
+      "console": "integratedTerminal",
+      "args": ["polytree", "50"]
     },
     {
       "name": "Calculate Probability For Graph 2",
@@ -33,12 +43,13 @@
       "program": "${cwd}/exact_inference/exact_inference.py",
       "console": "integratedTerminal",
       "args": [
-        "-f", 
+        "-f",
         "bn_test_2.json",
-        "-ev_true", "2", 
-        "-ev_false", 
-        "", 
-        "-q", 
+        "-ev_true",
+        "2",
+        "-ev_false",
+        "",
+        "-q",
         "0"
       ]
     },
