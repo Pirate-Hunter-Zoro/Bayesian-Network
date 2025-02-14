@@ -1,5 +1,5 @@
 # In order perform variable elimination, ultimately we'll need to use dijoint sets as certain factors will be joined into other factors
-class DisjointSet:
+class DisjointSetCollection:
     def __init__(self):
         self.__nodes = {}
 
@@ -31,7 +31,7 @@ class DisjointSet:
     
     def add_element(self, id: int):
         if id not in self.__nodes.keys():
-            self.__nodes[id] = DisjointSet.__Node(id=id)
+            self.__nodes[id] = DisjointSetCollection.__Node(id=id)
     
     def join(self, first_id: int, second_id: int):
         if first_id in self.__nodes.keys() and second_id in self.__nodes.keys():

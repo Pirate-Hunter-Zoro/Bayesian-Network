@@ -1,6 +1,7 @@
+import math
 import numpy as np
 import random
-from disjoint_set import DisjointSet
+from disjoint_set import DisjointSetCollection
 
 def find_row_sum_pairs(var: int, all_vars: list[int]) -> list[tuple[int,int]]:
     """Given a variable that should be eliminated by summing over its possibilities, and the ordered list of all variables, find all of the pairs of rows that should be summed together to eliminate said variable
@@ -186,7 +187,7 @@ def relevant(parents: list[int], parents_in_evidence: list[int], evidence: dict[
             return False
     return True
 
-def handle_vars(vars: list[int], eliminate: bool, factor_index_to_factor: dict[int,tuple[list[int],np.array]], factor_tracker: DisjointSet, var_to_factor_indices: dict[int,list[int]]) -> np.array:
+def handle_vars(vars: list[int], eliminate: bool, factor_index_to_factor: dict[int,tuple[list[int],np.array]], factor_tracker: DisjointSetCollection, var_to_factor_indices: dict[int,list[int]]) -> np.array:
     """Join the list of factors, with a flag to determine if said variables are to be eliminated
 
     Args:
@@ -224,7 +225,7 @@ def create_factors(network: dict, evidence: dict[int,bool]) -> tuple[dict[int, t
         tuple[dict[int, tuple[list[int],np.array]], dict[int,set[int]]]: map of factor ids to the factors themselves as well a map of variable ids to the set of factors pertaining to said variable
     """
     factor_index_to_factor = {}
-    var_to_factor_indices = {i: set() for i in range(len(network))}
+    var_to_factor_indices = {int(v): set() for v in network.keys()}
     for i, info in network.items():
         i = int(i)
 
@@ -375,3 +376,94 @@ def find_weight(current_evidence: dict[int,bool], original_evidence: dict[int,bo
         weight *= prob_true if original_evidence[v] else (1 - prob_true)
     
     return weight
+
+def disect_trees(network: dict) -> dict[int,dict]:
+    """Helper function to take a polytree Bayesian Network and return a map from each variable to its respective subtree bayesian network
+
+    Args:
+        network (dict): polytree bayesian network
+
+    Returns:
+        dict[int,dict]: mapping from each node to its respective polytree
+    """
+    node_sets = DisjointSetCollection()
+    for v in network.keys():
+        node_sets.add_element(id=int(v))
+    
+    # Each disjoint set in the collection corresponds with a different bayesian network
+    for v in network.keys():
+        # Join this node with all its parents
+        node_v = int(v)
+        for parent in network[v]["parents"]:
+            node_sets.join(node_v, parent)
+    
+    # Now create a set of dictionaries - each a connected bayesian network (directed acyclic graph)
+    network_map = {}
+    for v in network.keys():
+        node_v = int(v)
+        respective_set_idx = node_sets.get(node_v)
+        if respective_set_idx not in network_map.keys():
+            network_map[respective_set_idx] = {}
+        # Copy the entry into this subset network
+        network_map[respective_set_idx][v] = network[v]
+
+    return network_map
+
+def handle_dag_variable_elimination(dag: dict, queries: list[int], evidence: dict[int,bool]) -> np.array:
+    """Helper method to compute variable elimination when only dealing with a directed acyclic graph and not a polytree
+
+    Args:
+        dag (dict): connected bayesian network
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): set of evidence variables with their values
+
+    Returns:
+        np.array: probability distribution pertaining to the query variable values
+    """
+    # grab the list of factors and each factor has its own probability distribution - which will depend on its parents should they exist
+    factor_index_to_factor, var_to_factor_indices = create_factors(dag, evidence)
+
+    # ultimately, factors will be merged, and thus their index will correspond to the same set variable - we do not want that showing up multiple times when we consider the relevant factors to a variable below
+    factor_tracker = DisjointSetCollection()
+    for i in range(len(factor_index_to_factor)):
+        factor_tracker.add_element(id=i)
+
+    # figure out which variables need to be eliminated
+    query_set = set(queries)
+    evidence_set = set([pair[0] for pair in evidence.items()])
+    hidden_vars = [i for i in range(len(dag)) if i not in query_set and i not in evidence_set]
+    # sort the hidden variables by the number of relevant factors
+    hidden_vars.sort(key=lambda x : -len(var_to_factor_indices[x]))
+
+    # now we go through and eliminate each hidden variable
+    handle_vars(vars=hidden_vars, eliminate=True, factor_index_to_factor=factor_index_to_factor, factor_tracker=factor_tracker,var_to_factor_indices=var_to_factor_indices)
+    # this function also returns a factor
+    result = handle_vars(vars=queries, eliminate=False, factor_index_to_factor=factor_index_to_factor, factor_tracker=factor_tracker,var_to_factor_indices=var_to_factor_indices)
+    return result / np.sum(result) # for normalization
+
+def join_distributions(distributions: list[np.array]) -> np.array:
+    """Helper method to join a list of independent probability distributions together
+
+    Args:
+        distributions (list[np.array]): list of probability distributions
+
+    Returns:
+        np.array: resulting merged numpy array
+    """
+    num_vars = 0
+    for arr in distributions:
+        num_vars += int(math.log2(len(arr)))
+    
+    # join together two at a time
+    product = distributions[0]
+    for arr in distributions[1:]:
+        intermediate = np.zeros(shape=len(arr)*len(product))
+        idx = 0
+        for i in range(len(product)):
+            for j in range(len(arr)):
+                intermediate[idx] = product[i] * arr[j]
+        product = intermediate
+
+    # sanity check
+    assert len(product) == (1 << num_vars)
+    return product
