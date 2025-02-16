@@ -104,7 +104,7 @@ def find_common_rows(prev_factor_vars: list[int], next_factor_vars: list[int]) -
             for next_row in next_factor_rows:
                 row_multiplications[prev_row].append(next_row)
 
-    joined_vars = [v for v in prev_factor_rows if v not in common_vars] + [v for v in next_factor_rows]
+    joined_vars = [v for v in prev_factor_vars if v not in common_vars] + [v for v in next_factor_vars]
     return (row_multiplications, joined_vars)
 
 def join_factors(var: int, eliminate: bool, relevant_factors: list[tuple[list[int],np.array]]) -> tuple[list[int],np.array]:
@@ -195,7 +195,19 @@ def handle_vars(vars: list[int], eliminate: bool, factor_index_to_factor: dict[i
                 join_base = f_idx
             factor_index_to_factor[f_idx] = (resulting_vars, array)
             factor_tracker.join(f_idx, join_base)
-    return array
+    # It is possible some of the query variables are independent - ultimately take all of our remaining factors and join them together
+    arrays_to_join = []
+    factors_to_join = set()
+    for var in vars:
+        unique_factor_indices = list(set([factor_tracker.get(f_idx) for f_idx in var_to_factor_indices[var]]))
+        # Sanity check
+        assert len(unique_factor_indices) == 1
+        next_factor_idx = unique_factor_indices[0]
+        if next_factor_idx not in factors_to_join:
+            factors_to_join.add(unique_factor_indices[0])
+            arrays_to_join.append(factor_index_to_factor[next_factor_idx][1])
+
+    return join_distributions(arrays_to_join)
 
 def create_factors(network: dict, evidence: dict[int,bool]) -> tuple[dict[int, tuple[list[int],np.array]], dict[int,set[int]]]:
     """Create the two dictionaries that correspond with the factors created from this bayesian network
