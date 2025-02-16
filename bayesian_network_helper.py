@@ -7,7 +7,7 @@ def get_ancestors(network: dict) -> dict[int,list[int]]:
     Returns:
         dict[int,list[int]]: mapping of nodes to their ancestors
     """
-    return {i:[p for p in network[str(i)]["parents"]] for i in range(len(network))}
+    return {int(i):[p for p in network[i]["parents"]] for i in network.keys()}
 
 def topologically_sort(network: dict) -> list[int]:
     """Helper method to topologically sort variables in a bayesian network - which must be acyclic

@@ -14,19 +14,15 @@ class DisjointSetCollection:
                 self.__parent = self.__parent.__parent
         
         def join(self, other):
-            self.__compress()
-            other.__compress()
-            if self.__parent != self:
-                self.__parent.join(other)
-            elif other.__parent != other:
-                self.join(other.__parent)
+            if self.__parent != other.__parent and self.__parent != self:
+                self.__compress()
+                self.__parent.__parent = other
             else:
-                # both are parent nodes
                 self.__parent = other
             self.__compress()
-            other.__compress()
 
         def get_parent(self) -> int:
+            self.__compress()
             return self.__parent.__id
     
     def add_element(self, id: int):

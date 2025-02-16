@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import random
+import copy
+from bayesian_network_helper import topologically_sort
 from disjoint_set import DisjointSetCollection
 
 def find_row_sum_pairs(var: int, all_vars: list[int]) -> list[tuple[int,int]]:
@@ -300,6 +302,7 @@ def perform_gibbs_sampling(non_evidence_variables: list[int], current_evidence: 
     Returns:
         int: corresponding row in the likelihood array
     """
+
     # perform the Gibbs algorithm this many times
     var_to_change = non_evidence_variables[int(random.random()*len(non_evidence_variables))]
     del current_evidence[var_to_change]
@@ -420,6 +423,9 @@ def handle_dag_variable_elimination(dag: dict, queries: list[int], evidence: dic
     Returns:
         np.array: probability distribution pertaining to the query variable values
     """
+    if len(queries) == 0: # we do not care about any of the variables in this dag
+        return np.array([1.0])
+
     # grab the list of factors and each factor has its own probability distribution - which will depend on its parents should they exist
     factor_index_to_factor, var_to_factor_indices = create_factors(dag, evidence)
 
@@ -431,7 +437,7 @@ def handle_dag_variable_elimination(dag: dict, queries: list[int], evidence: dic
     # figure out which variables need to be eliminated
     query_set = set(queries)
     evidence_set = set([pair[0] for pair in evidence.items()])
-    hidden_vars = [i for i in range(len(dag)) if i not in query_set and i not in evidence_set]
+    hidden_vars = [int(i) for i in dag.keys() if int(i) not in query_set and int(i) not in evidence_set]
     # sort the hidden variables by the number of relevant factors
     hidden_vars.sort(key=lambda x : -len(var_to_factor_indices[x]))
 
@@ -440,6 +446,148 @@ def handle_dag_variable_elimination(dag: dict, queries: list[int], evidence: dic
     # this function also returns a factor
     result = handle_vars(vars=queries, eliminate=False, factor_index_to_factor=factor_index_to_factor, factor_tracker=factor_tracker,var_to_factor_indices=var_to_factor_indices)
     return result / np.sum(result) # for normalization
+
+def handle_dag_gibbs_sampling(iterations: int, network: dict, queries: list[int], evidence: dict[int,bool]) -> np.array:
+    """Helper method to handle gibbs sampling for one directed acyclic bayesian network, with its respective list of query variables and evidence
+
+    Args:
+        iterations (int): number of iterations to perform this
+        network (dict): directed acyclic bayesian network
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): map of evidence variables to their values
+
+    Returns:
+        np.array: probability distribution corresponding to the query variable values
+    """
+    if len(queries) == 0:
+        # we do not care about any of the variables in this polytree
+        return np.array([1.0])
+
+    prob_distribution = np.zeros(shape=1<<len(queries))
+    
+    # create list of non-evidence variables
+    non_evidence_variables = [int(i) for i in network.keys() if int(i) not in evidence.keys()]
+    
+    current_evidence = copy.deepcopy(evidence)
+    # randomly initialize all the variables
+    for v in non_evidence_variables:
+        current_evidence[v] = (random.random() < 0.5)
+
+    for _ in range(iterations):
+        posn = perform_gibbs_sampling(non_evidence_variables, current_evidence, network, queries)
+        prob_distribution[posn] += 1.0
+
+    return prob_distribution / iterations # normalization into a probability
+
+def handle_dag_likelihood_weighting(iterations: int, network: dict, queries: list[int], evidence: dict[int,bool]) -> np.array:
+    """Helper method to handle likelihood weighting for one directed acyclic bayesian network for the given number of iterations
+
+    Args:
+        iterations (int): number of iterations to run the algorithm
+        network (dict): underlying DAG bayesian network
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): set of evidence variables with their values
+
+    Returns:
+        np.array: resulting probability distribution for the query variables
+    """
+    if len(queries) == 0:
+        # not interested in any variables in this DAG network
+        return np.array([1.0])
+
+    prob_distribution = np.zeros(shape=1<<len(queries))
+    
+    # we're going to need to sort all of our variables topologically, because that's the order that we'll need to set their values to
+    sorted_vars = topologically_sort(network=network)
+    
+    for _ in range(iterations):
+        current_evidence = copy.deepcopy(evidence)
+        # go through each non-evidence variable and assign it a value randomly according to its probability
+        weight, posn = perform_likelihood_weighting(network, sorted_vars, queries, evidence, current_evidence)
+        # update the distribution accordingly
+        prob_distribution[posn] += weight
+
+    return prob_distribution / np.sum(prob_distribution) # normalization into a probability
+
+def handle_dag_metropolis_hastings(iterations: int, p: float, network: dict, queries: list[int], evidence: dict[int,bool]) -> np.array:
+    """Helper method to perform metropolis hastings approximate sampling on a directed acyclic single-tree bayesian network
+
+    Args:
+        iterations (int): number of iterations to run the algorithm
+        p (float): probability of using Gibbs Sampling to yield the next state during each iteration
+        network (dict): underlying DAG bayesian network
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): set of evidence variables with their values
+
+    Returns:
+        np.array: resulting probability distribution for the query variables
+    """
+    if len(queries) == 0:
+        return np.array([1.0])
+
+    # We'll use the alternative method fo metropolis hastings described in the README
+    prob_distribution = np.zeros(shape=1 << len(queries))
+
+    # create list of non-evidence variables
+    non_evidence_variables = [int(i) for i in network.keys() if int(i) not in evidence.keys()]
+
+    # also create list of topologically sorted variables
+    sorted_vars = topologically_sort(network=network)
+
+    prev_weighted_likelihood = 0.0
+    for _ in range(iterations):
+        current_evidence = copy.deepcopy(evidence)
+        if random.random() < p:
+            # randomly initialize all the variables
+            for v in non_evidence_variables:
+                current_evidence[v] = (random.random() < 0.5)
+            # Perform Gibbs sampling for our next state and accept it
+            posn = perform_gibbs_sampling(non_evidence_variables, current_evidence, network, queries)
+            prev_weighted_likelihood = find_weight(current_evidence, evidence, network)
+            # update the distribution accordingly
+            prob_distribution[posn] += 1.0
+        else:
+            # Perform likelihood weighting for our next state, but only move to it if the state is more likely than our previous state
+            old_evidence = copy.deepcopy(evidence)
+            weight, posn = perform_likelihood_weighting(network, sorted_vars, queries, evidence, current_evidence)
+            if weight < prev_weighted_likelihood:
+                # Reject the next state because it has a lower probability than the previous one obtained from likelihood weighting
+                current_evidence = old_evidence
+            else:
+                # Accept the next state
+                prev_weighted_likelihood = weight
+                prob_distribution[posn] += weight
+
+    return prob_distribution / np.sum(prob_distribution)
+
+def break_up_polytree(entire_network: dict, queries: list[int], evidence: dict[int,bool]) -> tuple[dict[int,dict], dict[int,list[int]], dict[int,list[int]]]:
+    """Helper method to break up a polytree into individual trees, and for each tree keep track of which query and evidence variables it has
+
+    Args:
+        entire_network (dict): polytree bayesian network
+        queries (list[int]): list of query variables
+        evidence (dict[int,bool]): evidence variables with their values
+
+    Returns:
+        tuple[dict[int,dict], dict[int,list[int]], dict[int,list[int]]]: mapping from nodes to their respective DAGS along with a mapping from each DAG to its query variables, and evidence variables
+    """
+    # if given a polytree, break it up into different trees
+    dag_map = disect_trees(entire_network)
+    # map of each dag index to all of its query and evidence variables
+    query_collections = {} 
+    evidence_collections = {}
+    for i, dag in dag_map.items():
+        query_collections[i] = []
+        evidence_collections[i] = []
+        for v in queries:
+            if str(v) in dag.keys():
+                query_collections[i].append(v)
+        for v in evidence.keys():
+            if str(v) in dag.keys():
+                evidence_collections[i].append(v)
+        # we'll sort the variables, which will affect the value order in the soon-to-be-calulated probability distributions
+        query_collections[i].sort()
+    return dag_map, query_collections, evidence_collections
 
 def join_distributions(distributions: list[np.array]) -> np.array:
     """Helper method to join a list of independent probability distributions together
@@ -462,6 +610,7 @@ def join_distributions(distributions: list[np.array]) -> np.array:
         for i in range(len(product)):
             for j in range(len(arr)):
                 intermediate[idx] = product[i] * arr[j]
+                idx += 1
         product = intermediate
 
     # sanity check
