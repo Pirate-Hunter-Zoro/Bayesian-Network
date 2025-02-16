@@ -37,6 +37,14 @@
       "args": ["polytree", "50"]
     },
     {
+      "name": "Create Giant Polytree Bayesian Network",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${cwd}/gen-bn/gen-bn.py",
+      "console": "integratedTerminal",
+      "args": ["polytree", "100"]
+    },
+    {
       "name": "Calculate Probability For Graph 2",
       "type": "debugpy",
       "request": "launch",

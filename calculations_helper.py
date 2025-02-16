@@ -40,49 +40,38 @@ def find_corresponding_rows(bit_mask: list[int], common_vars: list[int], all_var
     Returns:
         list[int]: list of rows corresponding with the truth values associated with the common variables
     """
-    vars_to_posn = {v : all_vars.index(v) for v in common_vars}
-    common_rows = set()
-    # we will have a list of sets which we will take the intersection of
-    row_sets = [set() for _ in common_vars]
-    for i, v in enumerate(common_vars):
-        idx = vars_to_posn[v]
-        binary_posn = len(all_vars) - 1 - idx
-        switch_every = 2 ** binary_posn
-        # see if at this row, the given common variable's truth value is matched
-        for row in range(2**len(all_vars)):
-            negative_row = ((row // switch_every) % 2) == 0
-            if not bit_mask[i] and negative_row:
-                row_sets[i].add(row)
-            elif bit_mask[i] and not negative_row:
-                row_sets[i].add(row)
-    # now take the intersection of all the row sets
-    for row in row_sets[0]:
-        missing = False
-        for i in range(1, len(row_sets)):
-            if row not in row_sets[i]:
-                missing = True
-                break
-        if not missing:
-            common_rows.add(row)
+    if len(common_vars) == 0:
+        # then return all rows
+        return [i for i in range(1 << len(all_vars))]
+    else:
+        vars_to_posn = {v : all_vars.index(v) for v in common_vars}
+        common_rows = set()
+        # we will have a list of sets which we will take the intersection of
+        row_sets = [set() for _ in common_vars]
+        for i, v in enumerate(common_vars):
+            idx = vars_to_posn[v]
+            binary_posn = len(all_vars) - 1 - idx
+            switch_every = 2 ** binary_posn
+            # see if at this row, the given common variable's truth value is matched
+            for row in range(2**len(all_vars)):
+                negative_row = ((row // switch_every) % 2) == 0
+                if not bit_mask[i] and negative_row:
+                    row_sets[i].add(row)
+                elif bit_mask[i] and not negative_row:
+                    row_sets[i].add(row)
+        # now take the intersection of all the row sets
+        for row in row_sets[0]:
+            missing = False
+            for i in range(1, len(row_sets)):
+                if row not in row_sets[i]:
+                    missing = True
+                    break
+            if not missing:
+                common_rows.add(row)
 
-    result = list(common_rows)
-    result.sort()
-    return result
-
-def is_subset(first: set[int], second: set[int]) -> bool:
-    """Return if the first set is a subset of the second set
-
-    Args:
-        first (set[int]): supposed subset
-        second (set[int]): supposed superset
-
-    Returns:
-        bool: whether the first set is a subset of the second set
-    """
-    for v in first:
-        if v not in second:
-            return False
-    return True
+        result = list(common_rows)
+        result.sort()
+        return result
 
 def find_common_rows(prev_factor_vars: list[int], next_factor_vars: list[int]) -> tuple[dict[int,list[int]],list[int]]:
     """Given two (ordered) lists of variables, determine which rows of the second factor must be multiplied by each row of the first factor
@@ -95,7 +84,6 @@ def find_common_rows(prev_factor_vars: list[int], next_factor_vars: list[int]) -
         tuple[dict[int,list[int]],list[int]]: for each row of the first factor, which rows of the second factor should it multiply? Also, return the variable order for the joined array.
     """
     common_vars = [v for v in prev_factor_vars if v in next_factor_vars]
-    common_vars_set = set(common_vars)
     
     # Each row in the previous factor corresponding to one combination of the values for the variables in common must multiply each row in the second factor 
     row_multiplications = {}
@@ -116,15 +104,7 @@ def find_common_rows(prev_factor_vars: list[int], next_factor_vars: list[int]) -
             for next_row in next_factor_rows:
                 row_multiplications[prev_row].append(next_row)
 
-    # TODO - fix this joined variable order...
-    prev_vars = set(prev_factor_vars)
-    next_vars = set(next_factor_vars)
-    if is_subset(prev_vars, next_vars):
-        joined_vars = next_factor_vars
-    elif is_subset(next_vars, prev_vars):
-        joined_vars = prev_factor_vars
-    else:
-        joined_vars = [v for v in prev_factor_vars] + [v for v in next_factor_vars if v not in common_vars_set]
+    joined_vars = [v for v in prev_factor_rows if v not in common_vars] + [v for v in next_factor_rows]
     return (row_multiplications, joined_vars)
 
 def join_factors(var: int, eliminate: bool, relevant_factors: list[tuple[list[int],np.array]]) -> tuple[list[int],np.array]:
@@ -146,11 +126,12 @@ def join_factors(var: int, eliminate: bool, relevant_factors: list[tuple[list[in
         # Find the list of rows corresponding to each factor that must multiply together
         row_multiplications, joined_vars = find_common_rows(prev_factor[0], next_factor[0])
         # Create a new array to populate with products
-        merged_array = np.zeros(shape=2**len(joined_vars))
+        merged_array = np.zeros(shape=1<<len(joined_vars))
+        idx = 0
         for prev_idx in row_multiplications:
             for next_idx in row_multiplications[prev_idx]:
-                # TODO - calculate curr_idx based on prev_idx and next_idx
-                merged_array[max(prev_idx, next_idx)] = prev_factor[1][prev_idx] * next_factor[1][next_idx]
+                merged_array[idx] = prev_factor[1][prev_idx] * next_factor[1][next_idx]
+                idx += 1
         # Set up for the next two multiplications
         merged = (joined_vars, merged_array)
         prev_factor = merged
