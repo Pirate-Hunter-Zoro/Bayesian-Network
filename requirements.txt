@@ -16,6 +16,8 @@ jupyter_core==5.7.2
 kiwisolver==1.4.8
 matplotlib==3.10.0
 matplotlib-inline==0.1.7
+mpl-finance==0.10.1
+mplfinance==0.12.10b0
 nest-asyncio==1.6.0
 networkx==3.4.2
 numpy==2.2.2
