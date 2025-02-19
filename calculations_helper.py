@@ -528,12 +528,12 @@ def handle_dag_metropolis_hastings(iterations: int, p: float, network: dict, que
     sorted_vars = topologically_sort(network=network)
 
     prev_weighted_likelihood = 0.0
+    # randomly initialize all the variables
+    current_evidence = copy.deepcopy(evidence)
+    for v in non_evidence_variables:
+        current_evidence[v] = (random.random() < 0.5)
     for _ in range(iterations):
-        current_evidence = copy.deepcopy(evidence)
         if random.random() < p:
-            # randomly initialize all the variables
-            for v in non_evidence_variables:
-                current_evidence[v] = (random.random() < 0.5)
             # Perform Gibbs sampling for our next state and accept it
             posn = perform_gibbs_sampling(non_evidence_variables, current_evidence, network, queries)
             prev_weighted_likelihood = find_weight(current_evidence, evidence, network)
@@ -541,7 +541,7 @@ def handle_dag_metropolis_hastings(iterations: int, p: float, network: dict, que
             prob_distribution[posn] += 1.0
         else:
             # Perform likelihood weighting for our next state, but only move to it if the state is more likely than our previous state
-            old_evidence = copy.deepcopy(evidence)
+            old_evidence = copy.deepcopy(current_evidence)
             weight, posn = perform_likelihood_weighting(network, sorted_vars, queries, evidence, current_evidence)
             if weight < prev_weighted_likelihood:
                 # Reject the next state because it has a lower probability than the previous one obtained from likelihood weighting
