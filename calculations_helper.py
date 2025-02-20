@@ -542,6 +542,7 @@ def handle_dag_metropolis_hastings(iterations: int, p: float, network: dict, que
         else:
             # Perform likelihood weighting for our next state, but only move to it if the state is more likely than our previous state
             old_evidence = copy.deepcopy(current_evidence)
+            current_evidence = evidence
             weight, posn = perform_likelihood_weighting(network, sorted_vars, queries, evidence, current_evidence)
             if weight < prev_weighted_likelihood:
                 # Reject the next state because it has a lower probability than the previous one obtained from likelihood weighting
